@@ -1994,11 +1994,6 @@ function buyS(realAmt,bonusAmt){
   var userId=null;
   userId=getServerId();
 
-  /* Debug — покажем что видит браузер */
-  var dbg='tg='+!!tg+' openInvoice='+!!(tg&&tg.openInvoice)+' uid='+userId;
-  showToast(dbg);
-  console.log('buyS debug:',dbg,tg);
-
   /* Если есть Telegram WebApp — реальная оплата Stars */
   if(tg && tg.openInvoice){
     showToast(S.lang==='ru'?'Открываем оплату…':'Opening payment…');
@@ -2571,15 +2566,23 @@ var _saveTimer=null;
 
 function getServerId(){
   if(_serverUserId)return _serverUserId;
+  /* Priority 1: Telegram user ID (most reliable) */
   try{
-    if(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user){
+    if(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.id){
       _serverUserId=String(tg.initDataUnsafe.user.id);
+      localStorage.setItem('mmm_uid',_serverUserId); /* cache it */
       return _serverUserId;
     }
   }catch(e){}
-  /* Fallback: store local ID */
+  /* Priority 2: cached ID from localStorage */
   var lid=localStorage.getItem('mmm_uid');
-  if(!lid){lid='local_'+Date.now();localStorage.setItem('mmm_uid',lid);}
+  if(lid&&lid!=='null'&&lid!=='undefined'){
+    _serverUserId=lid;
+    return _serverUserId;
+  }
+  /* Priority 3: generate stable ID */
+  lid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  localStorage.setItem('mmm_uid',lid);
   _serverUserId=lid;
   return lid;
 }
@@ -2587,6 +2590,25 @@ function getServerId(){
 /* Load balance from server on startup */
 function loadFromServer(){
   var uid=getServerId();
+  /* First try localStorage backup for instant load */
+  try{
+    var cached=localStorage.getItem('mmm_state');
+    if(cached){
+      var d=JSON.parse(cached);
+      if(d&&d.stars!==undefined&&d.userId===uid){
+        S.bal=d.stars;
+        S.totalDeposited=d.totalDeposited||0;
+        S.isTestBal=d.isTestBal!==undefined?d.isTestBal:true;
+        S.fateStage=d.fateStage||0;
+        S.fateWave=d.fateWave||1;
+        S.fateSpinsInStage=d.fateSpinsInStage||0;
+        S.totalWonFromReal=d.totalWonFromReal||0;
+        updUI();buildBPs();updSBtn();
+        console.log('Balance loaded from cache: '+S.bal+'★');
+      }
+    }
+  }catch(e){}
+  /* Then load from server (more reliable) */
   fetch(SERVER_URL+'/user/'+uid)
   .then(function(r){return r.json();})
   .then(function(data){
@@ -2602,30 +2624,40 @@ function loadFromServer(){
       console.log('Balance loaded from server: '+S.bal+'★');
     }
   })
-  .catch(function(e){console.log('Server offline, using local balance');});
+  .catch(function(){console.log('Server offline, using cached balance');});
 }
 
 /* Save balance to server (debounced) */
 function saveToServer(){
   if(_saveTimer)clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(function(){
-    var uid=getServerId();
-    fetch(SERVER_URL+'/save',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        userId:uid,
-        stars:S.bal,
-        totalDeposited:S.totalDeposited||0,
-        isTestBal:S.isTestBal,
-        fateStage:S.fateStage||0,
-        fateWave:S.fateWave||1,
-        fateSpinsInStage:S.fateSpinsInStage||0,
-        totalWonFromReal:S.totalWonFromReal||0
-      })
-    }).catch(function(){});
-  },2000); /* Save 2 seconds after last change */
+  _saveTimer=setTimeout(function(){_doSave();},1000);
 }
+function _doSave(){
+  var uid=getServerId();
+  if(!uid)return;
+  var payload={
+    userId:uid,
+    stars:S.bal,
+    totalDeposited:S.totalDeposited||0,
+    isTestBal:S.isTestBal,
+    fateStage:S.fateStage||0,
+    fateWave:S.fateWave||1,
+    fateSpinsInStage:S.fateSpinsInStage||0,
+    totalWonFromReal:S.totalWonFromReal||0
+  };
+  /* Also save to localStorage as backup */
+  try{localStorage.setItem('mmm_state',JSON.stringify(payload));}catch(e){}
+  fetch(SERVER_URL+'/save',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  }).catch(function(){});
+}
+/* Save immediately when app closes */
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'){_doSave();}
+});
+try{if(tg&&tg.onEvent){tg.onEvent('viewportChanged',function(){_doSave();});}}catch(e){}
 
 /* spacer handled via padding-top on sc-main */
 
