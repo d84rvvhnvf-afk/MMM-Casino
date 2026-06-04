@@ -1973,15 +1973,18 @@ function submitWithdraw(){
 }
 
 /* ══ TOPUP ══ */
-var SERVER_URL='https://mmm-casino-server.up.railway.app'; /* ← Railway URL после деплоя */
+var SERVER_URL='https://mmmserver-production.up.railway.app'; /* ← Railway URL после деплоя */
 
 function buyS(realAmt,bonusAmt){
   if(bonusAmt===undefined)bonusAmt=0;
   var userId=null;
   try{userId=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user?tg.initDataUnsafe.user.id:null;}catch(e){}
+  /* Fallback userId если initDataUnsafe пустой */
+  if(!userId){try{userId=tg&&tg.initData?'tg_user':null;}catch(e){}}
+  if(!userId)userId='user_'+Math.random().toString(36).slice(2,8);
 
-  /* Если есть Telegram и сервер — реальная оплата Stars */
-  if(tg && userId){
+  /* Если есть Telegram WebApp — реальная оплата Stars */
+  if(tg && tg.openInvoice){
     showToast(S.lang==='ru'?'Открываем оплату…':'Opening payment…');
     fetch(SERVER_URL+'/create-invoice',{
       method:'POST',
