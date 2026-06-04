@@ -397,15 +397,11 @@ body::before{content:'';position:fixed;inset:0;background:
   <div class="we"><div class="wm">MMM</div></div>
   <div class="wt">MMM Casino</div>
   <div class="wu">Exclusive · Private · Premium</div>
-  <div class="wb">
-    <div><div class="wbl" id="wbl">Стартовый баланс</div><div style="display:flex;align-items:baseline;gap:5px"><span style="font-family:var(--fd);font-size:22px;color:var(--gold);line-height:1">★</span><div class="wbv" id="wbv">10</div></div></div>
-    <div style="display:flex;gap:5px">
-      <button class="lb on" id="wlr" onclick="setL('ru')">RU</button>
-      <button class="lb" id="wle" onclick="setL('en')">EN</button>
-    </div>
+  <div style="display:flex;justify-content:center;gap:8px;margin:20px 0 0">
+    <button class="lb on" id="wlr" onclick="setL('ru')">RU</button>
+    <button class="lb" id="wle" onclick="setL('en')">EN</button>
   </div>
-  <button class="btn-g" id="web" onclick="enterLobby()">ВОЙТИ В КАЗИНО</button>
-
+  <button class="btn-g" id="web" onclick="showGiftScreen()" style="margin-top:32px" id="web">ВОЙТИ В КАЗИНО</button>
 </div>
 
 <!-- MAIN (lobby + profile tabs) -->
@@ -630,6 +626,7 @@ body::before{content:'';position:fixed;inset:0;background:
 </div>
 
 <!-- TOPUP -->
+<div id="sc-gift" class="sc"><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:32px 24px;text-align:center"><div style="font-size:72px;margin-bottom:20px;animation:wpu 2s ease-in-out infinite">🎁</div><div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--gold);margin-bottom:12px">Подарок для вас!</div><div style="font-size:14px;color:var(--w5);margin-bottom:8px">MMM Casino дарит вам</div><div style="font-family:var(--fd);font-size:60px;font-weight:700;color:var(--gl);margin:8px 0 4px">★ 10</div><div style="font-size:13px;color:var(--w5);margin-bottom:40px;opacity:.7">бесплатных Stars для игры</div><button class="btn-g" onclick="acceptGift()" id="gift-btn" style="width:100%;max-width:320px;font-size:15px;padding:18px">🎁 ЗАБРАТЬ ПОДАРОК</button></div></div>
 <div id="sc-top" class="sc">
   <div class="hdr">
     <div class="bk" onclick="goB()">←</div>
@@ -696,6 +693,10 @@ const tg=(()=>{
   }catch(e){}
   return null;
 })();
+/* Cache TG user ID immediately */
+setTimeout(function(){try{initUserId();}catch(e){}},100);
+/* Cache user ID immediately */
+try{initUserId();}catch(e){}
 try{if(tg){tg.ready&&tg.ready();tg.expand&&tg.expand();tg.setHeaderColor&&tg.setHeaderColor('#080808');tg.setBackgroundColor&&tg.setBackgroundColor('#080808')}}catch(e){}
 
 /* ══ I18N ══ */
@@ -989,10 +990,36 @@ function pickItem(rar){
 
 /* ══ NAVIGATION ══ */
 function showSc(id){document.querySelectorAll('.sc').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');window.scrollTo(0,0)}
+function showGiftScreen(){
+  /* Check if gift already given (localStorage) */
+  try{
+    var uid=getServerId();
+    var giftKey='mmm_gift_'+uid;
+    if(localStorage.getItem(giftKey)==='1'){
+      /* Already got gift — go straight to lobby */
+      enterLobby();
+      return;
+    }
+  }catch(e){}
+  /* First time — show gift screen */
+  showSc('sc-gift');
+}
+
+function acceptGift(){
+  /* Mark gift as received */
+  try{
+    var uid=getServerId();
+    localStorage.setItem('mmm_gift_'+uid,'1');
+  }catch(e){}
+  /* Animate button */
+  var btn=document.getElementById('gift-btn');
+  if(btn){btn.textContent='✨ Получено!';btn.disabled=true;btn.style.opacity='0.7';}
+  setTimeout(function(){enterLobby();},700);
+}
+
 function enterLobby(){
   buildLobby();updUI();showSc('sc-main');
-  /* Load saved balance from server */
-  setTimeout(loadFromServer, 300);
+  setTimeout(loadFromServer,300);
 }
 function goB(){
   /* Kill all reel intervals before navigating away */
@@ -2585,6 +2612,18 @@ function getServerId(){
   localStorage.setItem('mmm_uid',lid);
   _serverUserId=lid;
   return lid;
+}
+
+/* Force get TG user ID as early as possible */
+function initUserId(){
+  try{
+    if(tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.id){
+      var tid=String(tg.initDataUnsafe.user.id);
+      localStorage.setItem('mmm_uid',tid);
+      _serverUserId=tid;
+      console.log('TG User ID cached:',tid);
+    }
+  }catch(e){}
 }
 
 /* Load balance from server on startup */
