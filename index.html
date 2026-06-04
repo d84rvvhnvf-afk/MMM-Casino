@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>MMM Casino</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet"/>
@@ -685,7 +686,16 @@ const S={
   bjBet:5,bjDeck:[],bjPl:[],bjDe:[],bjAct:false,
   curCase:null,
 };
-const tg=(()=>{try{return window.Telegram&&window.Telegram.WebApp||null}catch(e){return null}})();
+const tg=(()=>{
+  try{
+    if(window.Telegram&&window.Telegram.WebApp){
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      return window.Telegram.WebApp;
+    }
+  }catch(e){}
+  return null;
+})();
 try{if(tg){tg.ready&&tg.ready();tg.expand&&tg.expand();tg.setHeaderColor&&tg.setHeaderColor('#080808');tg.setBackgroundColor&&tg.setBackgroundColor('#080808')}}catch(e){}
 
 /* ══ I18N ══ */
