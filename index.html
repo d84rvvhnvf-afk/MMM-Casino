@@ -1973,15 +1973,59 @@ function submitWithdraw(){
 }
 
 /* ══ TOPUP ══ */
+var SERVER_URL='https://mmm-casino-server.up.railway.app'; /* ← Railway URL после деплоя */
+
 function buyS(realAmt,bonusAmt){
   if(bonusAmt===undefined)bonusAmt=0;
-  try{if(tg&&tg.openInvoice){tg.showAlert&&tg.showAlert('Оплата '+realAmt+'★');return}}catch(e){}
+  var userId=null;
+  try{userId=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user?tg.initDataUnsafe.user.id:null;}catch(e){}
+
+  /* Если есть Telegram и сервер — реальная оплата Stars */
+  if(tg && userId){
+    showToast(S.lang==='ru'?'Открываем оплату…':'Opening payment…');
+    fetch(SERVER_URL+'/create-invoice',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({userId:userId, amount:realAmt})
+    })
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.url){
+        tg.openInvoice(data.url, function(status){
+          if(status==='paid'){
+            /* Начисляем баланс после успешной оплаты */
+            S.bal+=realAmt+bonusAmt;
+            S.bonusBal+=bonusAmt;
+            S.totalDeposited+=realAmt;
+            S.isTestBal=false;
+            S.fateStage=0;S.fateWave=1;S.fateSpinsInStage=0;S.fateLastResults=[];
+            S.realGameSpins=0;S.realLastResults=[];S.totalWonFromReal=0;
+            updUI();showSc(S.prev||'sc-main');chkZero();buildBPs();updSBtn();
+            showToast(S.lang==='ru'?'Баланс пополнен! ★':'Balance topped up! ★');
+          } else if(status==='cancelled'){
+            showToast(S.lang==='ru'?'Оплата отменена':'Payment cancelled');
+          }
+        });
+      } else {
+        showToast(S.lang==='ru'?'Ошибка оплаты':'Payment error');
+      }
+    })
+    .catch(function(){
+      /* Fallback: демо-режим если сервер недоступен */
+      S.bal+=realAmt+bonusAmt;S.bonusBal+=bonusAmt;
+      S.totalDeposited+=realAmt;S.isTestBal=false;
+      S.fateStage=0;S.fateWave=1;S.fateSpinsInStage=0;S.fateLastResults=[];
+      S.realGameSpins=0;S.realLastResults=[];S.totalWonFromReal=0;
+      updUI();showSc(S.prev||'sc-main');chkZero();buildBPs();updSBtn();
+    });
+    return;
+  }
+
+  /* Демо-режим (браузер без Telegram) */
   S.bal+=realAmt+bonusAmt;
   S.bonusBal+=bonusAmt;
-  /* Track real deposit — flip from test mode */
   S.totalDeposited+=realAmt;
-  S.isTestBal=false; /* now playing on real money */
-  /* Reset fate for fresh real-money arc */
+  S.isTestBal=false;
   S.fateStage=0;S.fateWave=1;S.fateSpinsInStage=0;S.fateLastResults=[];
   S.realGameSpins=0;S.realLastResults=[];S.totalWonFromReal=0;
   updUI();showSc(S.prev||'sc-main');chkZero();buildBPs();updSBtn();
