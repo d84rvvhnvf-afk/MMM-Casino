@@ -1984,6 +1984,11 @@ function buyS(realAmt,bonusAmt){
   var userId=null;
   userId=getServerId();
 
+  /* Debug — покажем что видит браузер */
+  var dbg='tg='+!!tg+' openInvoice='+!!(tg&&tg.openInvoice)+' uid='+userId;
+  showToast(dbg);
+  console.log('buyS debug:',dbg,tg);
+
   /* Если есть Telegram WebApp — реальная оплата Stars */
   if(tg && tg.openInvoice){
     showToast(S.lang==='ru'?'Открываем оплату…':'Opening payment…');
